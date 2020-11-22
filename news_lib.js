@@ -23,45 +23,57 @@ function NewsItem(source, title, desc = "", link = "", date = 0, weight = 1, pri
 // UTILS FUNCTIONS
 /////////////////////////////////////////////////////////////////////////////////////
 
-function getDomXml(linkRss, handler) {
+function asyncDomXml(linkRss, handlerDom) {
     let xhr = new XMLHttpRequest();
     xhr.open("GET", linkRss);    
     xhr.timeout = 7000;
     xhr.send();
     xhr.onreadystatechange = () => {
         if (xhr.readyState != 4) return;
-
         if (xhr.status != 200) {
-            handler(null);
+            console.error(`[xhr error] ${xhr.status} : ${linkRss}`)
+            return handlerDom(null);
         }
-
         let parser = new DOMParser();
-        handler(parser.parseFromString(xhr.responseText, "text/xml"));
+        return handlerDom(parser.parseFromString(xhr.responseText, "text/xml"));
     };
-    xhr.ontimeout = () => { handler(null)};    
+    xhr.ontimeout = () => {
+        console.error(`[timeout] : ${linkRss}`)
+        return handlerDom(null)
+    };    
 }
 
-function getDomHtml(linkHtml) {
+function asyncDomHtml(linkHtml, handlerDom) {
     let xhr = new XMLHttpRequest();
-    xhr.open("GET", linkHtml, false);
-    //xhr.timeout = 10000;
+    xhr.open("GET", linkHtml);    
+    xhr.timeout = 10000;
     xhr.send();
-    let parser = new DOMParser();
-    return parser.parseFromString(xhr.responseText, "text/html");
+    xhr.onreadystatechange = () => {
+        if (xhr.readyState != 4) return;
+        if (xhr.status != 200) {
+            console.error(`[xhr error] ${xhr.status} : ${linkHtml}`)
+            return handlerDom(null);
+        }
+        let parser = new DOMParser();
+        return handlerDom(parser.parseFromString(xhr.responseText, "text/html"));
+    };
+    xhr.ontimeout = () => {
+        console.error(`[timeout] : ${linkHtml}`)
+        return handlerDom(null)
+    };  
 }
 
-function getNewsItemsFromRss(rssLink, source, handlerMain) {
-    let maxItems = 30; //max parsing items in rss feed
+function asyncNewsItemsFromRss(rssLink, source, handlerMain) {
+    let maxItems = 50; //max parsing items in rss feed
     let items = [];
-    let dom = null;
-
-    getDomXml(rssLink, (dom) => {
-
-        if (dom === null)
+    asyncDomXml(rssLink, (dom) => {
+        if (dom === null) {
             return handlerMain(null);
-
+        }
         let count = dom.evaluate('count(//item/title)', dom, null, XPathResult.ANY_TYPE, null);
-        if (count.numberValue === 0) return handlerMain(null);
+        if (count.numberValue === 0) {
+            return handlerMain(null);
+        } 
         maxItems = count.numberValue > maxItems ? maxItems : count.numberValue;    
         for (let i = 1; i <= maxItems; i++) {
             let title = dom.evaluate('//item[' + i + ']/title', dom, null, XPathResult.ANY_TYPE, null).iterateNext();
@@ -84,6 +96,14 @@ function getErrorItem(source, title = null) {
     return new NewsItem(source, title, "", "", 0, 1000, 1000);
 }
 
+function compareLinks(link1 = "", link2 = "") {    
+    if (!(typeof link1 === 'string' && typeof link2 === 'string')) return false;
+    let regexp = /^(([^:\/?#]+):)?(\/\/([^\/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/;
+    link1 = link1.trim().replace(regexp, "$5");
+    link2 = link2.trim().replace(regexp, "$5"); 
+    return (link1 === link2);
+}
+
 
 /////////////////////////////////////////////////////////////////////////////////////
 // CORE
@@ -91,54 +111,119 @@ function getErrorItem(source, title = null) {
 
 
 /////////////////////////////////////////////////////////////////////////////////////
-// F1News
+// F1News.ru
 
 function loadF1News() {
-    let source = "F1News";
-    let urlRss = "http://www.f1news.ru/export/news.xml";
-    let urlMain = "https://www.f1newss.ru/";
+
+    const source = "f1news";
+    const urlRss = "http://www.f1news.ru/export/news.xml";
+    const urlMain = "https://www.f1news.ru/";
+    const baseWeight = 50;
+    const addWeightMain = 100;
+
     return new Promise((res, rej) => {
 
         //load rss
-        getNewsItemsFromRss(urlRss, "F1News", (items) => {
+        asyncNewsItemsFromRss(urlRss, source, (items) => {
 
             if (items === null) {
                 return res([getErrorItem(source)]);
             }
+            items.forEach(item => item.weight = baseWeight);
     
-            /*/load main page
-            let dom = null;
-            try {
-                dom = getDomHtml(urlMain);
-            } catch(e) {
-                console.log(e);
-                return res(items.push(getErrorItem(source, "Ошибка при загрузке главной страницы F1News.")));            
-            }*/
-    
-            res(items);
+            //load main page
+            asyncDomHtml(urlMain, (dom) => {
 
+                if (dom === null)  {
+                    items.push(getErrorItem(source, "Ошибка при загрузке главной страницы f1news."));
+                    return res(items);            
+                }
 
-        });
-        
+                let strLink = dom.querySelector("a.b-home-super-news__link");
+                if (strLink === null) {
+                    items.push(getErrorItem(source, "На сайте f1news не найдена главная новость."));
+                    return res(items);
+                }
+                let data = strLink.pathname;
+                for (let item of items) {         
+                    if (compareLinks(data, item.link)) {
+                        item.weight += addWeightMain;
+                        item.title = "Новость дня: " + item.title;
+                        break;
+                    }
+                }
 
+                res(items);
+            }); 
+        }); 
     });
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
-// Motorsport
+// Motorsport.com
 
 function loadMotorsport() {
-    let source = "Motorsport.com";
-    let urlRss = "https://ru.motorsport.com/rss/f1/news";
+
+    const source = "Motorsport.com";
+    const urlRss = "http://ru.motorsport.com/rss/f1/news/";    
+    const urlMain = "https://ru.motorsport.com/";
+    const urlTrand = "https://ru.motorsport.com/all/news/"
+    const baseWeight = 50;
+    const addWeightMain = 50;
+    const addWeightTrand = 30;
+
     return new Promise((res, rej) => {
-        getNewsItemsFromRss(urlRss, "Motorsport", (items) => {
+        asyncNewsItemsFromRss(urlRss, source, (items) => {
             if (items === null) {
                 items = ([getErrorItem(source)]);
             }
-            res(items);
+            items.forEach(item => item.weight = baseWeight);
+
+            //load main page
+            asyncDomHtml(urlMain, dom => {
+
+                if (dom === null) {
+                    items.push(getErrorItem(source, "Ошибка при загрузке главной страницы motorsport"));
+                    return res(items);
+                }
+
+                const elements = dom.querySelectorAll("div.ms-top-block-main h3.ms-item_title>a.ms-item_link");
+                const linksMain = [];
+                elements.forEach(element => {
+                    let data = element.pathname;
+                    linksMain.push(data);
+                });
+
+                for (let item of items) {
+                    if (linksMain.find(link => { return compareLinks(link, item.link) }))
+                        item.weight += addWeightMain;
+                }
+
+                //load trand page
+                asyncDomHtml(urlTrand, dom => {
+
+                    if (dom === null) {
+                        items.push(getErrorItem(source, "Ошибка при загрузке страницы списка новостей motorsport"));
+                        return res(items);
+                    }
+
+                    const elements = dom.querySelectorAll("div.ms-side-widget--trending a.ms-item_link--text");
+                    const linksTrand = [];
+                    elements.forEach(element => {
+                        let data = element.pathname;
+                        linksTrand.push(data);
+                    });
+
+                    for (let item of items) {
+                        if (linksTrand.find(link => { return compareLinks(link, item.link) }))
+                            item.weight += addWeightTrand;
+                    }
+
+                    res(items);
+                });                
+            });            
         });        
     });
-
 }
 
 

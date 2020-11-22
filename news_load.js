@@ -13,6 +13,8 @@ function renderItems(arrItems, title = "") {
       let nobr = document.createElement("nobr");
       nobr.innerHTML =
          item.source + " > " +
+         "W " + item.weight + " : " +
+         "P " + item.priority + " :: " +
          item.title + " :: " +
          item.desc + " :: " +
          item.date;
