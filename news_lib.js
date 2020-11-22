@@ -25,8 +25,7 @@ function NewsItem(source, title, desc = "", link = "", date = 0, weight = 1, pri
 
 function getDomXml(linkRss) {
     let xhr = new XMLHttpRequest();
-    xhr.open("GET", linkRss, false);
-    xhr.timeout = 7000;
+    xhr.open("GET", linkRss, false);    
     xhr.send();
     let parser = new DOMParser();
     return parser.parseFromString(xhr.responseText, "text/xml");
