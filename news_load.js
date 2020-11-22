@@ -31,6 +31,9 @@ function renderItems(arrItems, title = "") {
 // ENTRY POINT
 /////////////////////////////////////////////////////////////////////////////////////
 
-var news = Promise.all([loadF1News(), loadMotorsport()]).then((arrItems) => {
+var news = Promise.all([
+    loadF1News(),
+    loadMotorsport()
+]).then((arrItems) => {
   renderItems(arrItems, "RSS");
 });
