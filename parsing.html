@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>Парсинг веб-старниц</title>
+        
+    </head>
+    <body>
+        <div class="top">
+            <p>Парсинг веб-страниц</p>
+            <br />
+        </div>
+
+        <input type="text" id="txt_url" size="100">
+        <input type="button" value="Парсить!" id="btn_parse">
+        
+        <script src="news_content_parser.js" crossorigin="anonymous"></script>
+         
+        <script>
+            let btn = document.querySelector("#btn_parse");            
+            btn.addEventListener("click", btnHandler);
+
+            async function btnHandler() {
+                let url = document.querySelector('#txt_url').value;
+                let content = await getContent(url, handlerError);
+                if (content === null) {
+                    let p = document.createElement("p");
+                    p.innerHTML = "Error";
+                    document.body.append(p);
+                    return;
+                }
+
+                let arrText = content.split('\n');
+                for (let txt of arrText) {
+                    let p = document.createElement("p");
+                    p.innerHTML = txt;
+                    document.body.append(p);
+                }
+            }
+
+            function handlerError(e) {
+                    let p = document.createElement("p");
+                    p.innerHTML = "----------------- ERROR! ------------------" +
+                        "<br />" + e.error + "<br /> " + e.url +
+                        "<br />" + "----------------- ERROR! ------------------";
+                    document.body.append(p);
+            }
+
+        </script>
+        
+    </body>
+</html>

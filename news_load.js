@@ -6,6 +6,12 @@ function renderItems(items, title = "") {
     let titleHtml = document.createElement("p");
     titleHtml.innerHTML = title;
 
+    if (items === null) {
+        titleHtml.innerHTML = "Ошибка подключения!";
+        document.body.appendChild(titleHtml);
+        return;
+    }
+
     let ol = document.createElement("ol");
     ol.className = "list";  
     for (let item of items) {
@@ -33,5 +39,5 @@ function renderItems(items, title = "") {
 // ENTRY POINT
 /////////////////////////////////////////////////////////////////////////////////////
 
-LoadNews("feed1")
+LoadNews("feed2")
     .then(res => renderItems(res));

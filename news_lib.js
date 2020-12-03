@@ -36,7 +36,7 @@ function NewsItem(source, title, desc = null, link = null, date = null, weight =
 function asyncDomXml(linkRss, handlerDom) {
     let xhr = new XMLHttpRequest();
     xhr.open("GET", linkRss);    
-    xhr.timeout = 12000;
+    xhr.timeout = 15000;
     xhr.send();
     xhr.onreadystatechange = () => {
         if (xhr.readyState != 4) return;
@@ -47,16 +47,16 @@ function asyncDomXml(linkRss, handlerDom) {
         let parser = new DOMParser();
         return handlerDom(parser.parseFromString(xhr.responseText, "text/xml"));
     };
-    xhr.ontimeout = () => {
+    /*xhr.ontimeout = () => {
         console.error(`[timeout] : ${linkRss}`)
         return handlerDom(null)
-    };    
+    }; */   
 }
 
 function asyncDomHtml(linkHtml, handlerDom) {
     let xhr = new XMLHttpRequest();
     xhr.open("GET", linkHtml);    
-    xhr.timeout = 15000;
+    xhr.timeout = 30000;
     xhr.send();
     xhr.onreadystatechange = () => {
         if (xhr.readyState != 4) return;
@@ -67,14 +67,14 @@ function asyncDomHtml(linkHtml, handlerDom) {
         let parser = new DOMParser();
         return handlerDom(parser.parseFromString(xhr.responseText, "text/html"));
     };
-    xhr.ontimeout = () => {
+    /*xhr.ontimeout = () => {
         console.error(`[timeout] : ${linkHtml}`)
         return handlerDom(null)
-    };  
+    }; */ 
 }
 
 function asyncNewsItemsFromRss(rssLink, source, handlerMain) {
-    let maxItems = 40; //max parsing items in rss feed
+    let maxItems = 35; //max parsing items in rss feed
     let items = [];
     asyncDomXml(rssLink, (dom) => {
         if (dom === null) {
@@ -190,6 +190,37 @@ function convertTextToNumber(txt) {
     }
 }
 
+function shuffleArray(arr) {
+    var j, x, i;
+    for (i = arr.length - 1; i > 0; i--) {
+        j = Math.floor(Math.random() * (i + 1));
+        x = arr[i];
+        arr[i] = arr[j];
+        arr[j] = x;
+    }    
+}
+
+function getFirstSentence(txt) {
+    let sen = txt.match(/^.*?[.!?](?:\s|$)(?!.*\))/);
+    if (sen === null) return txt;
+    return sen[0];
+}
+
+function removeDuplicats(arr) {
+    let arrResult = {};
+    for (let i = 0, n = arr.length; i < n; i++) {
+        let item = arr[i];
+        arrResult[item.title] = item;
+    }
+
+    let i = 0;
+    let nonDuplicatedArray = [];    
+    for(var item in arrResult) {
+        nonDuplicatedArray[i++] = arrResult[item];
+    }
+    return nonDuplicatedArray;    
+}
+
 //#endregion
  
 /////////////////////////////////////////////////////////////////////////////////////
@@ -211,6 +242,19 @@ function LoadNews(feed) {
             loadMotorsport(),
             loadSportbox(),
             loadChampionat()
+        ]
+    }
+
+    if (feed === "feed2") {
+        maxItems = 18;
+        arrPromises = [
+            load3dnews(),
+            loadOverclockers(),
+            loadSakhalin(),
+            loadYandex("main"),
+            loadYandex("world"),
+            loadYandex("computers"),                                               
+            loadYandex("science")            
         ]
     }
 
@@ -244,6 +288,9 @@ function LoadNews(feed) {
                 // Remove Fouls
                 removeFouls(items, feed);
 
+                // Remove Duplicats
+                items = removeDuplicats(items);
+
                 // Remove Extra 
                 if (items.length > maxItems) 
                     items = items.slice(0, maxItems);
@@ -251,7 +298,8 @@ function LoadNews(feed) {
                 // Cleaning Content
                 cleanContent(items);
 
-                
+                // Shuffle
+                //shuffleArray(items);                
                
                 // Sort by priority, then - by date
                 items.sort((a, b) => { return a.priority - b.priority ||  a.date - b.date}); 
@@ -374,6 +422,7 @@ function loadMotorsport() {
                         try {
 
                             const elements = dom.querySelectorAll("div.ms-top-block-main h3.ms-item_title>a.ms-item_link");
+                            if (elements.length == 0) throw "empty elements";
                             const linksMain = [];
                             elements.forEach(element => {
                                 let data = element.pathname;
@@ -406,6 +455,7 @@ function loadMotorsport() {
                         try {
 
                             const elements = dom.querySelectorAll("div.ms-side-widget--trending a.ms-item_link--text");
+                            if (elements.length == 0) throw "empty elements";
                             const linksTrand = [];
                             elements.forEach(element => {
                                 let data = element.pathname;
@@ -451,7 +501,7 @@ function loadSportbox() {
         asyncDomHtml(urlMain,  dom => {            
             
             if (dom === null) {
-                items.push(getErrorItem(source, "Ошибка при загрузке sportbox.ru"));
+                items.push(getErrorItem(source));
                 return res(items);
             }
 
@@ -502,13 +552,14 @@ function loadChampionat() {
         asyncDomHtml(urlMain,  dom => {            
             
             if (dom === null) {
-                items.push(getErrorItem(source, "Ошибка при загрузке championat.ru"));
+                items.push(getErrorItem(source));
                 return res(items);
             }
 
             try {
 
                 let elements = dom.querySelectorAll("div.tabs-content._popular.js-topnews-content li.news-item"); 
+                if (elements.length == 0) throw "emmpty elements";
                 let arrPopulars = [];  
                 
                 elements.forEach((element) => {
@@ -593,4 +644,414 @@ function loadChampionat() {
 
 //#endregion
 
+/////////////////////////////////////////////////////////////////////////////////////
+// 3DNews
+
+//#region 3DNews.ru
+
+function load3dnews() {
+
+    const source = "3dnews.ru";    
+    const urlMain = "https://3dnews.ru/"; 
+    const urlNews = "https://3dnews.ru/news";
+    const baseWeight = 100;
+    const basePriority = 10;
+    const countNews = 8;
+    const weightOrder = 10; //weight for order by fresh
+    let items = [];
+    
+    return new Promise((res, rej) => {
+        asyncDomHtml(urlNews,  dom => {            
+            
+            if (dom === null) {
+                items.push(getErrorItem(source));
+                return res(items);
+            }
+
+            try {
+
+                const elements= dom.querySelectorAll("div#section-content.news-feed-all div.article-entry.marker_imp");  
+                let arrMain = [];
+                let j = countNews;
+
+                if (elements.length === 0) throw ("no elements");
+                elements.forEach(element => {
+                    if (arrMain.length >= countNews) return;
+
+                    let link = element.querySelector("a.entry-header").pathname;
+                    let title = element.querySelector("h1").textContent;
+                    let desc = element.querySelector("p").textContent;
+                    let weight = --j * weightOrder;
+                    let item = {
+                        title,
+                        link,
+                        desc,
+                        weight
+                    }
+                    arrMain.push(item);
+                });
+
+                arrMain.forEach(i => {
+                    items.push( new NewsItem(source, i.title, getFirstSentence(i.desc), 
+                        getFullLink(urlMain, i.link), null, baseWeight + i.weight, basePriority));
+                });
+
+            } 
+            catch(e) {
+                console.log(e);
+                items.push(getErrorItem(source, "Ошибка парсинга 3dnews"));
+                return res(items);
+            }
+
+            return res(items);                      
+        });        
+    });
+}
+
+//#endregion
+
+/////////////////////////////////////////////////////////////////////////////////////
+// Overclockers.ru
+
+//#region overclockers.ru
+
+function loadOverclockers() {
+
+    const source = "overclockers.ru";    
+    const urlMain = "https://overclockers.ru/";
+    const baseWeight = 50;
+    const basePriority = 20;
+    const countNews = 8;
+    const weightPerComm = 2;
+    const weightPerOrder = 1
+    const prob2News = 15;
+    const prob3News = 70;
+    const prob5News = 15;
+    let items = [];
+    
+    return new Promise((res, rej) => {
+        asyncDomHtml(urlMain,  dom => {            
+            
+            if (dom === null) {
+                items.push(getErrorItem(source));
+                return res(items);
+            }
+
+            try {
+
+                const elements= dom.querySelectorAll("div[data-tab=newsAll] div.feed.news.mixed-news-wrap div.event"); 
+                if (elements.length === 0) throw ("no elements"); 
+
+                let arrMain = [];
+                let j = elements.length;
+
+                //select count using random
+                let countNews = 1;
+                let prob = Math.random() * 100;
+                if (prob < prob2News) countNews = 2;
+                else if (prob < (prob2News+prob3News)) countNews = 3;                               
+                else countNews = 5;
+                
+                elements.forEach(element => {
+                    if (arrMain.length >= countNews) return;
+
+                    let link = element.querySelector("div.summary>a").pathname;
+                    let title = element.querySelector("div.summary>a").textContent;                    
+                    let comms = convertTextToNumber(element.querySelector("span.cc-real").textContent);
+                    let weight = (comms * weightPerComm) + (j-- * weightPerOrder);
+                    let item = {
+                        title,
+                        link,
+                        comms,
+                        weight                        
+                    }
+                    arrMain.push(item);
+                });
+
+                arrMain.sort((a, b) => { return b.weight - a.weight; });
+
+                arrMain.forEach(i => {
+                    items.push( new NewsItem(source, i.title, null, 
+                        getFullLink(urlMain, i.link), null, baseWeight + i.weight, basePriority));
+                });
+
+            } 
+            catch(e) {
+                console.log(e);
+                items.push(getErrorItem(source, "Ошибка парсинга overclockers"));
+                return res(items);
+            }
+
+            return res(items);                      
+        });        
+    });
+}
+
+//#endregion
+
+/////////////////////////////////////////////////////////////////////////////////////
+// Sakhalin.info
+
+//#region sakhalin.info
+function loadSakhalin() {
+
+    const source = "sakhalin.info";    
+    const urlMain = "https://sakhalin.info/";
+    const baseWeight = 0;
+    const basePriority = 500;
+    const prob1News = 15;
+    const prob2News = 40;
+    const prob3News = 35;
+    const prob5News = 10;
+    const weightPerComm = 0.2;
+    const weightPerView = 0.003;
+    let items = [];
+    
+    return new Promise((res, rej) => {
+        asyncDomHtml(urlMain,  dom => {            
+            
+            if (dom === null) {
+                items.push(getErrorItem(source));
+                return res(items);
+            }
+
+            try {
+
+                const elements= dom.querySelectorAll("div.picture-of-the-day__main-list div.popular-story"); 
+                if (elements.length === 0) throw ("no elements"); 
+
+                let arrMain = [];
+                
+                elements.forEach(element => {
+                    //if (arrMain.length >= countNews) return;
+
+                    let link = element.querySelector("a.popular-story__link").pathname;
+                    let title = element.querySelector("div.popular-story__title>a.popular-story__link").textContent;                    
+                    let views = element.querySelector("span.popular-story__stat_views-popular");
+                    let comms = element.querySelector("a.popular-story__stat_comments-popular,a.popular-story__stat_comments");
+
+
+                    if (views === null) views = "0"; else views = views.textContent;
+                    if (comms === null) comms  = "0"; else comms = comms.textContent;
+                    
+                    views = convertTextToNumber(views);
+                    comms = convertTextToNumber(comms);
+                    let weight = (views * weightPerView)  + (comms * weightPerComm);
+                    
+                    let item = {
+                        title,
+                        link,
+                        views,
+                        comms,
+                        weight                       
+                    }
+                    arrMain.push(item);
+                });
+
+                arrMain.sort((a, b) => { return b.weight - a.weight; });
+
+                if (arrMain[0].weight === 0) throw ("sakh.com - all views or comms is 0");
+
+                //select count using random
+                let countNews = 1;
+                let prob = Math.random() * 100;
+                if (prob < prob1News) countNews = 1;
+                else if (prob < (prob1News+prob2News)) countNews = 2;
+                else if (prob < (prob1News+prob2News+prob3News)) countNews = 3;
+                else countNews = 5;
+
+                if (arrMain.length > countNews) {
+                    arrMain.splice(countNews);
+                }                
+
+                arrMain.forEach(i => {
+                    items.push( new NewsItem(source, i.title, null, 
+                        getFullLink(urlMain, i.link), null, baseWeight + i.weight, basePriority));
+                });
+
+            } 
+            catch(e) {
+                console.log(e);
+                items.push(getErrorItem(source, "Ошибка парсинга sakh.com"));
+                return res(items);
+            }
+
+            return res(items);                      
+        });        
+    });
+}
+
+//#endregion
+
+/////////////////////////////////////////////////////////////////////////////////////
+// Yandex.ru
+
+//#region yandex news
+
+function asyncDomYandex(linkHtml, handlerDom) {
+    let xhr = new XMLHttpRequest();
+    xhr.open("GET", linkHtml);
+    //xhr.setRequestHeader("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36");    
+    xhr.timeout = 30000;
+    xhr.send();
+    xhr.onreadystatechange = () => {
+        if (xhr.readyState != 4) return;
+        if (xhr.status != 200) {
+            console.error(`[xhr error] ${xhr.status} : ${linkHtml}`)
+            return handlerDom(null);
+        }
+        let parser = new DOMParser();
+        return handlerDom(parser.parseFromString(xhr.responseText, "text/html"));
+    };
+    /*xhr.ontimeout = () => {
+        console.error(`[timeout] : ${linkHtml}`)
+        return handlerDom(null)
+    }; */ 
+}
+
+function loadYandex(type) {
+
+    let source = "yandex.news.main";    
+    let urlBase = "https://yandex.ru/";
+    let urlMain = "https://yandex.ru/news";
+    
+    let baseWeight = 100;
+    let basePriority = 300;
+    let prob1News = 20;
+    let prob2News = 60;
+    let prob3News = 19;
+    let prob5News = 1;
+    let weightPerOrder = 30;
+    let timeout = 0;    
+    let items = [];
+
+    if (type === "world") {
+        urlMain = "https://yandex.ru/news/rubric/world";
+        source = "yandex.news.world";
+        baseWeight -= 10;
+        basePriority += 10;
+        prob1News = 30;
+        prob2News = 60;
+        prob3News = 9;
+        prob5News = 1;
+        timeout = 50;
+    }
+    else if (type === "science") {
+        urlMain = "https://yandex.ru/news/rubric/science";
+        source = "yandex.news.science";
+        baseWeight -= 20;
+        basePriority += 20;
+        prob1News = 70;
+        prob2News = 25;
+        prob3News = 4;
+        prob5News = 1;
+        timeout = 100;
+    }
+    else if (type === "computers") {
+        urlMain = "https://yandex.ru/news/rubric/computers";
+        source = "yandex.news.computers";
+        baseWeight -= 10;
+        basePriority -= 10;
+        prob1News = 70;
+        prob2News = 25;
+        prob3News = 4;
+        prob5News = 1;
+        timeout = 150;
+    }
+    
+    
+    return new Promise((res, rej) => {
+        setTimeout(asyncDomYandex, timeout, urlMain,  dom => {            
+            
+            if (dom === null) {
+                items.push(getErrorItem("Ошибка при загрузке yandex news."));
+                return res(items);
+            }
+
+            try {
+
+                //mobile version
+                let elements = dom.querySelectorAll("div.news-feed article.news-card"); 
+                if (elements.length === 0) 
+                {
+                    //desktop version
+                    elements = dom.querySelectorAll("div.news-top-stories article.news-card");
+                }
+                if (elements.length === 0) 
+                {
+                    throw ("yandex news: no elements"); 
+                }                    
+
+                let arrMain = [];
+                //select count using random
+                let countNews = 1;
+                let prob = Math.random() * 100;
+                if (prob < prob1News) countNews = 1;
+                else if (prob < (prob1News+prob2News)) countNews = 2;
+                else if (prob < (prob1News+prob2News+prob3News)) countNews = 3;                
+                else countNews = 5;
+                let j = countNews;
+                
+                elements.forEach(element => {
+                    if (arrMain.length >= countNews) return;
+                    
+                    let link = element.querySelector("a.news-card__link").pathname;
+                    let title = element.querySelector("h2.news-card__title").textContent;    
+                                     
+                    
+                    let weight = --j * weightPerOrder; 
+                    
+                    let item = {
+                        title,
+                        link,                        
+                        weight                       
+                    }
+                    arrMain.push(item);
+                    
+                });
+
+                arrMain.sort((a, b) => { return b.weight - a.weight; });
+
+
+                /*setTimeout( {() => arrMain.forEach(i => {
+                    let fullUrl = getFullLink(urlBase, i.link);
+                    
+                    asyncDomHtml(fullUrl, (domPage) => {
+                        let find = domPage.querySelector("news-story__subtitle-text");
+                        console.log(find.textContent);
+                    })
+                    
+                })
+            }, 1000);*/
+
+                //select count using random
+                /*let countNews = 1;
+                let prob = Math.random() * 100;
+                if (prob < prob1News) countNews = 1;
+                else if (prob < (prob1News+prob2News)) countNews = 2;
+                else if (prob < (prob1News+prob2News+prob3News)) countNews = 3;
+                else countNews = 5;
+
+                if (arrMain.length > countNews) {
+                    arrMain.splice(countNews);
+                }  */              
+
+                arrMain.forEach(i => {
+                    items.push( new NewsItem(source, i.title, null, 
+                        getFullLink(urlBase, i.link), null, baseWeight + i.weight, basePriority));
+                });
+
+            } 
+            catch(e) {
+                console.log(e);
+                items.push(getErrorItem(source, "Ошибка парсинга yandex news"));
+                return res(items);
+            }
+
+            return res(items);                      
+        });        
+    });
+}
+
+//#endregion
 

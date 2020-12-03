@@ -2,7 +2,7 @@
 // TASKER DEPENDENCIES (USING BUILT-IN TASKER'S FUNCTIONS)
 /////////////////////////////////////////////////////////////////////////////////////
 
-const FileFoulsCacheMaxItems = 300;
+const FileFoulsCacheMaxItems = 600;
 
 function removeFouls(items, feed) {
     const fileName = `${global('%NewsBaseFolder')}/fouls.cache.${feed}.txt`;
@@ -84,4 +84,11 @@ function writeNewsToFiles(items, feed) {
         return false;
     }
     return true;
+}
+
+//save error if raise while js parsing
+function handlerErrorParsing(e) {
+    const fileName = `${global('%NewsBaseFolder')}/wrong_sites_parsing.txt`;
+    let txt = "> " + e.error + "\n" + e.url + "\n\n";
+    writeFile(fileName, txt, true);
 }
