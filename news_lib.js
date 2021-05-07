@@ -74,7 +74,7 @@ function asyncDomHtml(linkHtml, handlerDom) {
 }
 
 function asyncNewsItemsFromRss(rssLink, source, handlerMain) {
-    let maxItems = 35; //max parsing items in rss feed
+    let maxItems = 30; //max parsing items in rss feed
     let items = [];
     asyncDomXml(rssLink, (dom) => {
         if (dom === null) {
@@ -143,7 +143,7 @@ function cleanContent(items) {
 
     let arrDescs = allDescs.split('ł');
 
-    for (let i = 0, len = arrDescs.length; i < len; i++) {
+    for (let i = 0, len = items.length; i < len; i++) {
         items[i].desc = arrDescs[i];
     }
 }
@@ -161,6 +161,12 @@ function filterTitles(items, arrSkipRegex) {
         }
     }    
 }
+
+function filterText(txt, sourceReplace, targetReplace = "") {
+    txt = txt.replace(sourceReplace, targetReplace);
+    return txt;
+}
+
 
 //add numbers for speech
 function addNumbersForSpeech(items) {
@@ -253,6 +259,7 @@ function LoadNews(feed) {
             loadSakhalin(),
             loadYandex("main"),
             loadYandex("world"),
+            loadYandex("culture"),
             loadYandex("computers"),                                               
             loadYandex("science")            
         ]
@@ -347,7 +354,12 @@ function loadF1News() {
                 /: Комментарии перед этапом/,
                 /: Круглые числа/,
                 /^\d+ минут до старта/,
-                /: Точка самого серьёзного торможения/
+                /: Точка самого серьёзного торможения/,
+                /: Все цитаты/,
+                /: Пресс-конференция/,
+                /: Комментарии после/,
+                /: Круг за кругом/,
+                /: Порядок смены шина/
             ])
             items.forEach(item => item.weight = baseWeight);
             updateWeightPerDate(items);
@@ -543,9 +555,9 @@ function loadChampionat() {
     const urlMain = "https://www.championat.com/";    
     const baseWeight = 200;
     const basePriority = 100;
-    const prob1News = 45;
-    const prob2News = 40;
-    const prob3News = 15;
+    const prob1News = 35;
+    const prob2News = 20;
+    const prob3News = 10;
     let items = [];
     
     return new Promise((res, rej) => {
@@ -558,7 +570,7 @@ function loadChampionat() {
 
             try {
 
-                let elements = dom.querySelectorAll("div.tabs-content._popular.js-topnews-content li.news-item"); 
+                let elements = dom.querySelectorAll("div.top-news div.top-news__wrap div._main li.news-item"); 
                 if (elements.length == 0) throw "emmpty elements";
                 let arrPopulars = [];  
                 
@@ -603,11 +615,14 @@ function loadChampionat() {
                             let prob = Math.random() * 100;
                             if (prob < prob1News) countNews = 1;
                             else if (prob < (prob1News+prob2News)) countNews = 2;
-                            else countNews = 3;
+                            else if (prob < (prob1News+prob2News+prob3News)) countNews = 0;
 
                             if (arrPopulars.length > countNews) {
                                 arrPopulars.splice(countNews);
                             }
+
+                            if (countNews === 0)
+                                arrPopulars = [];                            
 
                             arrPopulars.forEach(pop => {
                                 items.push( new NewsItem(source, pop.title, null, getFullLink(urlMain, pop.link), null, baseWeight,
@@ -680,6 +695,7 @@ function load3dnews() {
 
                     let link = element.querySelector("a.entry-header").pathname;
                     let title = element.querySelector("h1").textContent;
+                    title = filterText(title, "S.T.A.L.K.E.R.", "STALKER");
                     let desc = element.querySelector("p").textContent;
                     let weight = --j * weightOrder;
                     let item = {
@@ -692,7 +708,9 @@ function load3dnews() {
                 });
 
                 arrMain.forEach(i => {
-                    items.push( new NewsItem(source, i.title, getFirstSentence(i.desc), 
+                    //items.push( new NewsItem(source, i.title, getFirstSentence(i.desc), 
+                    //    getFullLink(urlMain, i.link), null, baseWeight + i.weight, basePriority));
+                    items.push( new NewsItem(source, i.title, null, 
                         getFullLink(urlMain, i.link), null, baseWeight + i.weight, basePriority));
                 });
 
@@ -930,8 +948,8 @@ function loadYandex(type) {
         source = "yandex.news.world";
         baseWeight -= 10;
         basePriority += 10;
-        prob1News = 30;
-        prob2News = 60;
+        prob1News = 40;
+        prob2News = 20;
         prob3News = 9;
         prob5News = 1;
         timeout = 50;
@@ -941,10 +959,10 @@ function loadYandex(type) {
         source = "yandex.news.science";
         baseWeight -= 20;
         basePriority += 20;
-        prob1News = 70;
-        prob2News = 25;
-        prob3News = 4;
-        prob5News = 1;
+        prob1News = 60;
+        prob2News = 30;
+        prob3News = 6;
+        prob5News = 3;
         timeout = 100;
     }
     else if (type === "computers") {
@@ -952,8 +970,19 @@ function loadYandex(type) {
         source = "yandex.news.computers";
         baseWeight -= 10;
         basePriority -= 10;
-        prob1News = 70;
+        prob1News = 50;
         prob2News = 25;
+        prob3News = 4;
+        prob5News = 1;
+        timeout = 150;
+    }
+    else if (type === "culture") {
+        urlMain = "https://yandex.ru/news/rubric/culture";
+        source = "yandex.news.computers";
+        baseWeight -= 10;
+        basePriority -= 10;
+        prob1News = 60;
+        prob2News = 20;
         prob3News = 4;
         prob5News = 1;
         timeout = 150;
@@ -974,8 +1003,18 @@ function loadYandex(type) {
                 let elements = dom.querySelectorAll("div.news-feed article.news-card"); 
                 if (elements.length === 0) 
                 {
+                    //alternate version
+                    elements = dom.querySelectorAll("div.news-feed article.mg-card");
+                }
+                if (elements.length === 0) 
+                {
                     //desktop version
                     elements = dom.querySelectorAll("div.news-top-stories article.news-card");
+                }
+                if (elements.length === 0) 
+                {
+                    //desktop alternate version
+                    elements = dom.querySelectorAll("div.news-top-stories article.mg-card");
                 }
                 if (elements.length === 0) 
                 {
@@ -988,15 +1027,28 @@ function loadYandex(type) {
                 let prob = Math.random() * 100;
                 if (prob < prob1News) countNews = 1;
                 else if (prob < (prob1News+prob2News)) countNews = 2;
-                else if (prob < (prob1News+prob2News+prob3News)) countNews = 3;                
-                else countNews = 5;
+                else if (prob < (prob1News+prob2News+prob3News)) countNews = 3; 
+                else if (prob < (prob1News+prob2News+prob3News+prob5News)) countNews = 5;             
+                else countNews = 0;
+
+                if (countNews === 0)
+                    return res(items); 
+
                 let j = countNews;
                 
                 elements.forEach(element => {
                     if (arrMain.length >= countNews) return;
                     
-                    let link = element.querySelector("a.news-card__link").pathname;
-                    let title = element.querySelector("h2.news-card__title").textContent;    
+                    let link = element.querySelector("a.news-card__link");
+                    let title = element.querySelector("h2.news-card__title");   
+                    
+                    if (link === null) {
+                        link = element.querySelector("a.mg-card__link");
+                        title = element.querySelector("h2.mg-card__title"); 
+                    }
+
+                    link = link.pathname;
+                    title = title.textContent;
                                      
                     
                     let weight = --j * weightPerOrder; 

@@ -44,6 +44,7 @@ function getContent(url, handlerError = null) {
             "div.b-text__content p",
             "div.b-text p",            
             "div.page-content p",
+            "div.page__content p",
             "div.news-content-text p",
             "div.mainContent p",
             "div.article p",
@@ -52,7 +53,11 @@ function getContent(url, handlerError = null) {
             "div.text-content p",
             "div.newtext p",
             "div.mainContent p",
-            "div.workarea-text p" ,
+            "div.workarea-text p",
+            "div.b-news-detail-body p",
+            "div.page_news_content div",
+            "div.b-article__content p",
+            "div.news p",
             "article p"               
         ];
 
