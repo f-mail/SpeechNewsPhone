@@ -946,7 +946,7 @@ function loadYandex(type) {
     if (type === "world") {
         urlMain = "https://yandex.ru/news/rubric/world";
         source = "yandex.news.world";
-        baseWeight -= 10;
+        baseWeight -= 5;
         basePriority += 10;
         prob1News = 40;
         prob2News = 20;
@@ -957,7 +957,7 @@ function loadYandex(type) {
     else if (type === "science") {
         urlMain = "https://yandex.ru/news/rubric/science";
         source = "yandex.news.science";
-        baseWeight -= 20;
+        baseWeight -= 10;
         basePriority += 20;
         prob1News = 60;
         prob2News = 30;
@@ -968,7 +968,7 @@ function loadYandex(type) {
     else if (type === "computers") {
         urlMain = "https://yandex.ru/news/rubric/computers";
         source = "yandex.news.computers";
-        baseWeight -= 10;
+        baseWeight -= 15;
         basePriority -= 10;
         prob1News = 50;
         prob2News = 25;
@@ -979,7 +979,7 @@ function loadYandex(type) {
     else if (type === "culture") {
         urlMain = "https://yandex.ru/news/rubric/culture";
         source = "yandex.news.computers";
-        baseWeight -= 10;
+        baseWeight -= 20;
         basePriority -= 10;
         prob1News = 60;
         prob2News = 20;

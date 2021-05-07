@@ -39,5 +39,5 @@ function renderItems(items, title = "") {
 // ENTRY POINT
 /////////////////////////////////////////////////////////////////////////////////////
 
-LoadNews("feed1")
+LoadNews("feed2")
     .then(res => renderItems(res));
