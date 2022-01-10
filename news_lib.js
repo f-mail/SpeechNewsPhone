@@ -73,8 +73,8 @@ function asyncDomHtml(linkHtml, handlerDom) {
     }; */ 
 }
 
-function asyncNewsItemsFromRss(rssLink, source, handlerMain) {
-    let maxItems = 30; //max parsing items in rss feed
+function asyncNewsItemsFromRss(rssLink, source, maxItems, handlerMain) {
+    //let maxItems = 30; //max parsing items in rss feed
     let items = [];
     asyncDomXml(rssLink, (dom) => {
         if (dom === null) {
@@ -171,7 +171,7 @@ function filterText(txt, sourceReplace, targetReplace = "") {
 //add numbers for speech
 function addNumbersForSpeech(items) {
     for(let i = 1; i < items.length; i++) {
-        if ((i+1) % 5 == 0) 
+        if ((i+1) % 15 == 0) 
             items[i].title = (i+1).toString() + ". " + items[i].title;
     }
 }
@@ -227,6 +227,16 @@ function removeDuplicats(arr) {
     return nonDuplicatedArray;    
 }
 
+function setTagForNewsBlock(items, tag) { //нужно перенести функцию в pipeline, сортировка тут неуместна
+    if (items.length === 0)
+        return items;
+    items.sort((a, b) => { return b.weight - a.weight }); 
+    items.sort((a, b) => { return a.priority - b.priority ||  a.date - b.date}); 
+    
+    items[0].title = tag + ": " + items[0].title;
+    return items;
+}
+
 //#endregion
  
 /////////////////////////////////////////////////////////////////////////////////////
@@ -246,17 +256,20 @@ function LoadNews(feed) {
         arrPromises = [
             loadF1News(),
             loadMotorsport(),
-            loadSportbox(),
+            //loadSportbox(),
             loadChampionat()
         ]
     }
 
     if (feed === "feed2") {
-        maxItems = 18;
+        maxItems = 24;
         arrPromises = [
             load3dnews(),
             loadOverclockers(),
             loadSakhalin(),
+            loadHabr(),
+            loadHabrNews(),
+            loadSvoboda(),
             loadYandex("main"),
             loadYandex("world"),
             loadYandex("culture"),
@@ -342,7 +355,7 @@ function loadF1News() {
     return new Promise((res, rej) => {
 
         //load rss
-        asyncNewsItemsFromRss(urlRss, source, (items) => {
+        asyncNewsItemsFromRss(urlRss, source, 30, (items) => {
 
             if (items === null) {
                 return res([getErrorItem(source)]);
@@ -410,7 +423,7 @@ function loadMotorsport() {
     const addWeightTrand = 80;
 
     return new Promise((res, rej) => {
-        asyncNewsItemsFromRss(urlRss, source, (items) => {
+        asyncNewsItemsFromRss(urlRss, source, 30, (items) => {
             if (items === null) {
                 return res([getErrorItem(source)]);
             }
@@ -555,9 +568,9 @@ function loadChampionat() {
     const urlMain = "https://www.championat.com/";    
     const baseWeight = 200;
     const basePriority = 100;
-    const prob1News = 35;
-    const prob2News = 20;
-    const prob3News = 10;
+    const prob1News = 40;
+    const prob2News = 40;
+    const prob3News = 20;
     let items = [];
     
     return new Promise((res, rej) => {
@@ -615,7 +628,7 @@ function loadChampionat() {
                             let prob = Math.random() * 100;
                             if (prob < prob1News) countNews = 1;
                             else if (prob < (prob1News+prob2News)) countNews = 2;
-                            else if (prob < (prob1News+prob2News+prob3News)) countNews = 0;
+                            else countNews = 3;
 
                             if (arrPopulars.length > countNews) {
                                 arrPopulars.splice(countNews);
@@ -659,6 +672,156 @@ function loadChampionat() {
 
 //#endregion
 
+
+/////////////////////////////////////////////////////////////////////////////////////
+// Habr
+
+//#region habr.com
+
+function loadHabr() {
+
+    const source = "habr.com";
+    const urlRss = "https://habr.com/ru/rss/best/daily/?fl=ru";    
+    const baseWeight = 100;
+    const basePriority = 800;
+
+    const prob1News = 60;
+    const prob2News = 30;
+    const prob3News = 10;
+    
+
+    return new Promise((res, rej) => {
+
+        //load rss
+        asyncNewsItemsFromRss(urlRss, source, 5, (items) => {
+
+            if (items === null) {
+                return res([getErrorItem(source)]);
+            }
+            
+            items.forEach(item => item.weight = baseWeight);
+            items.forEach(item => item.priority = basePriority);
+            items.forEach(item => item.desc = "(empty)");
+            items.forEach(item => item.date = 0);
+
+            //updateWeightPerDate(items); 
+
+            //select count using random
+            let countNews = 1;
+            let prob = Math.random() * 100;
+            if (prob < prob1News) countNews = 1;
+            else if (prob < (prob1News+prob2News)) countNews = 2;            
+            else countNews = 3;
+
+            if (items.length > countNews)
+                items.splice(countNews);
+
+            res(items);            
+        });         
+    });
+}
+
+function loadHabrNews() {
+
+    const source = "habr.com/news";
+    const urlRss = "https://habr.com/ru/rss/news/?fl=ru";    
+    const baseWeight = 80;
+    const basePriority = 700;
+
+    const prob1News = 50;
+    const prob2News = 40;
+    const prob3News = 10;
+    
+
+    return new Promise((res, rej) => {
+
+        //load rss
+        asyncNewsItemsFromRss(urlRss, source, 5, (items) => {
+
+            if (items === null) {
+                return res([getErrorItem(source)]);
+            }
+            
+            items.forEach(item => item.weight = baseWeight);
+            items.forEach(item => item.priority = basePriority);
+            items.forEach(item => item.desc = "(empty)");
+            items.forEach(item => item.date = 0);
+
+            updateWeightPerDate(items); 
+
+            //select count using random
+            let countNews = 1;
+            let prob = Math.random() * 100;
+            if (prob < prob1News) countNews = 1;
+            else if (prob < (prob1News+prob2News)) countNews = 2;            
+            else countNews = 3;
+
+            if (items.length > countNews)
+                items.splice(countNews);
+
+            items = setTagForNewsBlock(items, "HABR");
+
+            res(items);            
+        });         
+    });
+}
+
+//#endregion
+
+
+/////////////////////////////////////////////////////////////////////////////////////
+// radio svoboda
+
+//#region svoboda
+
+function loadSvoboda() {
+
+    const source = "svoboda.org";
+    const urlRss = "https://www.svoboda.org/api/zmrpmye$tpmv";    
+    const baseWeight = 90;
+    const basePriority = 600;
+
+    const prob1News = 60;
+    const prob2News = 20;
+    const prob3News = 20;
+    
+
+    return new Promise((res, rej) => {
+
+        //load rss
+        asyncNewsItemsFromRss(urlRss, source, 5, (items) => {
+
+            if (items === null) {
+                return res([getErrorItem(source)]);
+            }
+            
+            items.forEach(item => item.weight = baseWeight);
+            items.forEach(item => item.priority = basePriority);
+            items.forEach(item => item.desc = "(empty)");
+            items.forEach(item => item.date = 0);
+
+            updateWeightPerDate(items); 
+
+            //select count using random
+            let countNews = 1;
+            let prob = Math.random() * 100;
+            if (prob < prob1News) countNews = 1;
+            else if (prob < (prob1News+prob2News)) countNews = 2;            
+            else countNews = 3;
+
+            if (items.length > countNews)
+                items.splice(countNews);
+
+            items = setTagForNewsBlock(items, "СВОБОДА");
+
+            res(items);            
+        });         
+    });
+}
+
+//#endregion
+
+
 /////////////////////////////////////////////////////////////////////////////////////
 // 3DNews
 
@@ -671,7 +834,7 @@ function load3dnews() {
     const urlNews = "https://3dnews.ru/news";
     const baseWeight = 100;
     const basePriority = 10;
-    const countNews = 8;
+    const countNews = 7;
     const weightOrder = 10; //weight for order by fresh
     let items = [];
     
@@ -742,8 +905,8 @@ function loadOverclockers() {
     const countNews = 8;
     const weightPerComm = 2;
     const weightPerOrder = 1
-    const prob2News = 15;
-    const prob3News = 70;
+    const prob2News = 20;
+    const prob3News = 65;
     const prob5News = 15;
     let items = [];
     
@@ -817,9 +980,9 @@ function loadSakhalin() {
     const urlMain = "https://sakhalin.info/";
     const baseWeight = 0;
     const basePriority = 500;
-    const prob1News = 15;
-    const prob2News = 40;
-    const prob3News = 35;
+    const prob1News = 25;
+    const prob2News = 35;
+    const prob3News = 30;
     const prob5News = 10;
     const weightPerComm = 0.2;
     const weightPerView = 0.003;
@@ -907,20 +1070,24 @@ function loadSakhalin() {
 //#region yandex news
 
 function asyncDomYandex(linkHtml, handlerDom) {
-    let xhr = new XMLHttpRequest();
-    xhr.open("GET", linkHtml);
-    //xhr.setRequestHeader("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36");    
-    xhr.timeout = 30000;
-    xhr.send();
-    xhr.onreadystatechange = () => {
-        if (xhr.readyState != 4) return;
-        if (xhr.status != 200) {
-            console.error(`[xhr error] ${xhr.status} : ${linkHtml}`)
-            return handlerDom(null);
-        }
-        let parser = new DOMParser();
-        return handlerDom(parser.parseFromString(xhr.responseText, "text/html"));
-    };
+
+    let parser = new DOMParser();
+    return handlerDom(parser.parseFromString(linkHtml, "text/html"));
+
+    // let xhr = new XMLHttpRequest();
+    // xhr.open("GET", linkHtml);
+    // //xhr.setRequestHeader("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36");    
+    // xhr.timeout = 30000;
+    // xhr.send();
+    // xhr.onreadystatechange = () => {
+    //     if (xhr.readyState != 4) return;
+    //     if (xhr.status != 200) {
+    //         console.error(`[xhr error] ${xhr.status} : ${linkHtml}`)
+    //         return handlerDom(null);
+    //     }
+    //     let parser = new DOMParser();
+    //     return handlerDom(parser.parseFromString(xhr.responseText, "text/html"));
+    // };
     /*xhr.ontimeout = () => {
         console.error(`[timeout] : ${linkHtml}`)
         return handlerDom(null)
@@ -931,31 +1098,34 @@ function loadYandex(type) {
 
     let source = "yandex.news.main";    
     let urlBase = "https://yandex.ru/";
-    let urlMain = "https://yandex.ru/news";
+    //let urlMain = "https://yandex.ru/news";
+    let urlMain = yamain;
     
     let baseWeight = 100;
     let basePriority = 300;
-    let prob1News = 20;
-    let prob2News = 60;
-    let prob3News = 19;
+    let prob1News = 60;
+    let prob2News = 30;
+    let prob3News = 9;
     let prob5News = 1;
     let weightPerOrder = 30;
     let timeout = 0;    
     let items = [];
 
     if (type === "world") {
-        urlMain = "https://yandex.ru/news/rubric/world";
+        //urlMain = "https://yandex.ru/news/rubric/world";
+        urlMain = yaworld;
         source = "yandex.news.world";
         baseWeight -= 5;
         basePriority += 10;
-        prob1News = 40;
+        prob1News = 70;
         prob2News = 20;
         prob3News = 9;
         prob5News = 1;
         timeout = 50;
     }
     else if (type === "science") {
-        urlMain = "https://yandex.ru/news/rubric/science";
+        //urlMain = "https://yandex.ru/news/rubric/science";
+        urlMain = yascience;
         source = "yandex.news.science";
         baseWeight -= 10;
         basePriority += 20;
@@ -966,22 +1136,24 @@ function loadYandex(type) {
         timeout = 100;
     }
     else if (type === "computers") {
-        urlMain = "https://yandex.ru/news/rubric/computers";
+        //urlMain = "https://yandex.ru/news/rubric/computers";
+        urlMain = yacomputers;
         source = "yandex.news.computers";
         baseWeight -= 15;
-        basePriority -= 10;
-        prob1News = 50;
-        prob2News = 25;
+        basePriority += 40;
+        prob1News = 70;
+        prob2News = 15;
         prob3News = 4;
         prob5News = 1;
         timeout = 150;
     }
     else if (type === "culture") {
-        urlMain = "https://yandex.ru/news/rubric/culture";
+        //urlMain = "https://yandex.ru/news/rubric/culture";
+        urlMain = yaculture;
         source = "yandex.news.computers";
         baseWeight -= 20;
-        basePriority -= 10;
-        prob1News = 60;
+        basePriority += 30;
+        prob1News = 70;
         prob2News = 20;
         prob3News = 4;
         prob5News = 1;
@@ -999,8 +1171,22 @@ function loadYandex(type) {
 
             try {
 
+                let arrMain = [];
+                
                 //mobile version
-                let elements = dom.querySelectorAll("div.news-feed article.news-card"); 
+                let elements = dom.querySelectorAll("div.news-feed article.news-card");
+                if (elements.length === 0) 
+                {
+                    //alternate version
+                    elements = dom.querySelectorAll("div.news-app__content div.mg-card__inner");
+                }			
+				
+				if (elements.length === 0) 
+                {
+                    //alternate version
+                    elements = dom.querySelectorAll("div.news-feed div.mg-card__inner");
+                }                
+
                 if (elements.length === 0) 
                 {
                     //alternate version
@@ -1017,11 +1203,11 @@ function loadYandex(type) {
                     elements = dom.querySelectorAll("div.news-top-stories article.mg-card");
                 }
                 if (elements.length === 0) 
-                {
-                    throw ("yandex news: no elements"); 
+                {                    
+                    arrMain.push(getErrorItem(source, "Не нашли новости для:" + source));
                 }                    
 
-                let arrMain = [];
+                
                 //select count using random
                 let countNews = 1;
                 let prob = Math.random() * 100;
@@ -1060,7 +1246,7 @@ function loadYandex(type) {
                     }
                     arrMain.push(item);
                     
-                });
+                });                
 
                 arrMain.sort((a, b) => { return b.weight - a.weight; });
 
