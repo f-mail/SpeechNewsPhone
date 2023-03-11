@@ -256,8 +256,8 @@ function LoadNews(feed) {
         arrPromises = [
             loadF1News(),
             loadMotorsport(),
-            //loadSportbox(),
-            loadChampionat()
+            loadSportbox(),
+            //loadChampionat()
         ]
     }
 
@@ -266,15 +266,15 @@ function LoadNews(feed) {
         arrPromises = [
             load3dnews(),
             loadOverclockers(),
-            loadSakhalin(),
+            // loadSakhalin(),
             loadHabr(),
-            loadHabrNews(),
-            loadSvoboda(),
-            loadYandex("main"),
-            loadYandex("world"),
-            loadYandex("culture"),
-            loadYandex("computers"),                                               
-            loadYandex("science")            
+            loadHabrNews()
+            // loadSvoboda(),
+            // loadYandex("main"),
+            // loadYandex("world"),
+            // loadYandex("culture"),
+            // loadYandex("computers"),                                               
+            // loadYandex("science")            
         ]
     }
 
@@ -516,8 +516,8 @@ function loadMotorsport() {
 
 function loadSportbox() {
 
-    const source = "sportbox.ru";    
-    const urlMain = "https://news.sportbox.ru/";    
+    const source = "sport.ru";    
+    const urlMain = "https://sport.ru/";    
     const baseWeight = 200;
     const basePriority = 100;
     let items = [];
@@ -532,8 +532,8 @@ function loadSportbox() {
 
             try {
 
-                const elementLink = dom.querySelector("div._Sportbox_Spb2015_Components_NewsOfDayBlock_NewsOfDayBlock a");
-                const elementTitle = dom.querySelector("div.news_of_day--desc");                
+                const elementLink = dom.querySelector("div.articles-item-large a");
+                const elementTitle = dom.querySelector("div.articles-item-large h3");                
 
                 let link = getFullLink(urlMain, elementLink.pathname);
                 let title = elementTitle.textContent;
@@ -546,7 +546,7 @@ function loadSportbox() {
             } 
             catch(e) {
                 console.log(e);
-                items.push(getErrorItem(source, "Ошибка парсинга sportbox.ru"));
+                items.push(getErrorItem(source, "Ошибка парсинга sport.ru"));
                 return res(items);
             }
 
@@ -777,7 +777,7 @@ function loadHabrNews() {
 function loadSvoboda() {
 
     const source = "svoboda.org";
-    const urlRss = "https://www.svoboda.org/api/zmrpmye$tpmv";    
+    const urlRss = "https://d19jioddu7q9d3.cloudfront.net/api/zmrpmye$tpmv";    
     const baseWeight = 90;
     const basePriority = 600;
 
@@ -834,7 +834,7 @@ function load3dnews() {
     const urlNews = "https://3dnews.ru/news";
     const baseWeight = 100;
     const basePriority = 10;
-    const countNews = 7;
+    const countNews = 8;
     const weightOrder = 10; //weight for order by fresh
     let items = [];
     
@@ -905,9 +905,9 @@ function loadOverclockers() {
     const countNews = 8;
     const weightPerComm = 2;
     const weightPerOrder = 1
-    const prob2News = 20;
-    const prob3News = 65;
-    const prob5News = 15;
+    const prob2News = 30;
+    const prob3News = 60;
+    const prob5News = 10;
     let items = [];
     
     return new Promise((res, rej) => {
@@ -977,7 +977,7 @@ function loadOverclockers() {
 function loadSakhalin() {
 
     const source = "sakhalin.info";    
-    const urlMain = "https://sakhalin.info/";
+    const urlMain = "https://iasakh.com/";
     const baseWeight = 0;
     const basePriority = 500;
     const prob1News = 25;
@@ -1097,7 +1097,7 @@ function asyncDomYandex(linkHtml, handlerDom) {
 function loadYandex(type) {
 
     let source = "yandex.news.main";    
-    let urlBase = "https://yandex.ru/";
+    let urlBase = "https://dzen.ru/news";
     //let urlMain = "https://yandex.ru/news";
     let urlMain = yamain;
     
@@ -1112,7 +1112,7 @@ function loadYandex(type) {
     let items = [];
 
     if (type === "world") {
-        //urlMain = "https://yandex.ru/news/rubric/world";
+        //urlMain = "https://dzen.ru/news/rubric/world";
         urlMain = yaworld;
         source = "yandex.news.world";
         baseWeight -= 5;
@@ -1124,7 +1124,7 @@ function loadYandex(type) {
         timeout = 50;
     }
     else if (type === "science") {
-        //urlMain = "https://yandex.ru/news/rubric/science";
+        //urlMain = "https://dzen.ru/news/rubric/science";
         urlMain = yascience;
         source = "yandex.news.science";
         baseWeight -= 10;
